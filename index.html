@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Google Sheet WDC</title>
+    <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
+    <script>
+    (function() {
+        var myConnector = tableau.makeConnector();
+
+        myConnector.getSchema = function(schemaCallback) {
+            var cols = [
+                { id: "Column1", alias: "Column 1", dataType: tableau.dataTypeEnum.string },
+                { id: "Column2", alias: "Column 2", dataType: tableau.dataTypeEnum.float }
+            ];
+
+            var tableSchema = {
+                id: "myGoogleSheetFeed",
+                alias: "Google Sheet Data for Histogram",
+                columns: cols
+            };
+
+            schemaCallback([tableSchema]);
+        };
+
+        myConnector.getData = function(table, doneCallback) {
+            var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&id=1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk&gid=0";
+
+            fetch(csvUrl)
+                .then(response => response.text())
+                .then(csvText => {
+                    var data = tableau.helpers.parseCsv(csvText);
+
+                    table.appendRows(data.map(function(row) {
+                        return {
+                            "Column1": row["Column1"],
+                            "Column2": parseFloat(row["Column2"])
+                        };
+                    }));
+                    doneCallback();
+                });
+        };
+
+        tableau.registerConnector(myConnector);
+
+        // Submit connector when button is clicked
+        window.onload = function() {
+            document.getElementById("submitButton").addEventListener("click", function() {
+                tableau.connectionName = "Google Sheet Histogram Data";
+                tableau.submit();
+            });
+        };
+    })();
+    </script>
+</head>
+<body>
+    <h2>Google Sheet WDC</h2>
+    <button id="submitButton">Load Data into Tableau</button>
+</body>
+</html>
