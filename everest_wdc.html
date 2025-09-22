@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Everest API WDC</title>
+    <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
+    <script>
+        (function () {
+            var myConnector = tableau.makeConnector();
+
+            // Define the schema
+            myConnector.getSchema = function (schemaCallback) {
+                var cols = [
+                    { id: "id", dataType: tableau.dataTypeEnum.string },
+                    { id: "name", dataType: tableau.dataTypeEnum.string },
+                    { id: "value", dataType: tableau.dataTypeEnum.float },
+                    { id: "date", dataType: tableau.dataTypeEnum.date }
+                ];
+
+                var tableSchema = {
+                    id: "everestData",
+                    alias: "Everest Audience Enthusiasm Data",
+                    columns: cols
+                };
+
+                schemaCallback([tableSchema]);
+            };
+
+            // Download the data
+            myConnector.getData = function (table, doneCallback) {
+                var apiUrl = "https://api.everest.validity.com/api/2.0/analytics/audience/enthusiasm";
+
+                fetch(apiUrl, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        // If authentication is needed, include here:
+                        // "Authorization": "Bearer YOUR_API_KEY"
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    var tableData = [];
+
+                    // Assuming `data` is an array; adjust based on API response structure
+                    data.forEach(function (item) {
+                        tableData.push({
+                            "id": item.id,
+                            "name": item.name,
+                            "value": item.value,
+                            "date": item.date
+                        });
+                    });
+
+                    table.appendRows(tableData);
+                    doneCallback();
+                })
+                .catch(error => {
+                    console.error("Error fetching data: ", error);
+                });
+            };
+
+            tableau.registerConnector(myConnector);
+
+            // Setup event listener for Submit button
+            document.addEventListener("DOMContentLoaded", function () {
+                document.getElementById("submitButton").addEventListener("click", function () {
+                    tableau.connectionName = "Everest Audience Enthusiasm Data";
+                    tableau.submit();
+                });
+            });
+        })();
+    </script>
+</head>
+<body>
+    <h2>Everest API Tableau Connector</h2>
+    <p>Click the button below to fetch Everest data into Tableau.</p>
+    <button id="submitButton">Get Data</button>
+</body>
+</html>
