@@ -8,35 +8,47 @@
     (function() {
         var myConnector = tableau.makeConnector();
 
+        // Define the schema
         myConnector.getSchema = function(schemaCallback) {
             var cols = [
-                { id: "Column1", alias: "Column 1", dataType: tableau.dataTypeEnum.string },
-                { id: "Column2", alias: "Column 2", dataType: tableau.dataTypeEnum.float }
+                { id: "category", alias: "Category", dataType: tableau.dataTypeEnum.string },
+                { id: "sub_category", alias: "Sub Category", dataType: tableau.dataTypeEnum.string },
+                { id: "region", alias: "Region", dataType: tableau.dataTypeEnum.string }
             ];
 
             var tableSchema = {
-                id: "myGoogleSheetFeed",
-                alias: "Google Sheet Data for Histogram",
+                id: "googleSheetFeed",
+                alias: "Google Sheet Data",
                 columns: cols
             };
 
             schemaCallback([tableSchema]);
         };
 
+        // Download and map the data
         myConnector.getData = function(table, doneCallback) {
-            var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&id=1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk&gid=0";
+            var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&gid=0";
 
             fetch(csvUrl)
                 .then(response => response.text())
                 .then(csvText => {
                     var data = tableau.helpers.parseCsv(csvText);
 
+                    // Log for debugging
+                    console.log("Parsed data:", data);
+
                     table.appendRows(data.map(function(row) {
                         return {
-                            "Column1": row["Column1"],
-                            "Column2": parseFloat(row["Column2"])
+                            "category": row["category"] || "",
+                            "sub_category": row["sub category"] || "",
+                            "region": row["region"] || ""
                         };
                     }));
+
+                    doneCallback();
+                })
+                .catch(err => {
+                    console.error("Error fetching sheet:", err);
                     doneCallback();
                 });
         };
@@ -46,7 +58,7 @@
         // Submit connector when button is clicked
         window.onload = function() {
             document.getElementById("submitButton").addEventListener("click", function() {
-                tableau.connectionName = "Google Sheet Histogram Data";
+                tableau.connectionName = "Google Sheet Data Connector";
                 tableau.submit();
             });
         };
