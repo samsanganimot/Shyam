@@ -7,61 +7,64 @@
     <script>
     (function() {
         var myConnector = tableau.makeConnector();
-        var sheetData = []; // store parsed data
 
-        // Step 1: Get schema dynamically
+        // Step 1: Schema (static placeholder first)
         myConnector.getSchema = function(schemaCallback) {
+            // We will dynamically detect headers in getData,
+            // but Tableau needs a schema up front.
+            // So just return empty, then we’ll rebuild in getData.
+            var tableSchema = {
+                id: "googleSheetFeed",
+                alias: "Google Sheet Data",
+                columns: [] // placeholder
+            };
+            schemaCallback([tableSchema]);
+        };
+
+        // Step 2: Get data dynamically
+        myConnector.getData = function(table, doneCallback) {
             var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&gid=0";
 
             fetch(csvUrl)
                 .then(response => response.text())
                 .then(csvText => {
-                    sheetData = tableau.helpers.parseCsv(csvText);
+                    var data = tableau.helpers.parseCsv(csvText);
+                    console.log("Parsed data:", data);
 
-                    // Get column names from the first row's keys
-                    var headers = Object.keys(sheetData[0]);
+                    if (data.length === 0) {
+                        console.warn("No rows found in sheet!");
+                        doneCallback();
+                        return;
+                    }
 
-                    // Build schema dynamically
-                    var cols = headers.map(function(h) {
-                        return {
-                            id: h.replace(/\s+/g, "_"), // replace spaces with underscores for Tableau
+                    // Build schema dynamically from headers
+                    if (table.columns.length === 0) {
+                        var headers = Object.keys(data[0]);
+                        var cols = headers.map(h => ({
+                            id: h.replace(/\s+/g, "_"),
                             alias: h,
                             dataType: tableau.dataTypeEnum.string
-                        };
+                        }));
+                        table.columns = cols; // set schema now
+                    }
+
+                    // Map rows
+                    var headers = Object.keys(data[0]);
+                    var rows = data.map(row => {
+                        var obj = {};
+                        headers.forEach(h => {
+                            obj[h.replace(/\s+/g, "_")] = row[h] || "";
+                        });
+                        return obj;
                     });
 
-                    var tableSchema = {
-                        id: "googleSheetFeed",
-                        alias: "Google Sheet Data",
-                        columns: cols
-                    };
-
-                    schemaCallback([tableSchema]);
+                    table.appendRows(rows);
+                    doneCallback();
                 })
                 .catch(err => {
-                    console.error("Error fetching schema:", err);
+                    console.error("Error fetching sheet:", err);
+                    doneCallback();
                 });
-        };
-
-        // Step 2: Get data dynamically
-        myConnector.getData = function(table, doneCallback) {
-            if (sheetData.length === 0) {
-                doneCallback();
-                return;
-            }
-
-            var headers = Object.keys(sheetData[0]);
-
-            var rows = sheetData.map(function(row) {
-                var obj = {};
-                headers.forEach(function(h) {
-                    obj[h.replace(/\s+/g, "_")] = row[h] || "";
-                });
-                return obj;
-            });
-
-            table.appendRows(rows);
-            doneCallback();
         };
 
         tableau.registerConnector(myConnector);
