@@ -7,9 +7,9 @@
     <script>
     (function() {
         var myConnector = tableau.makeConnector();
-        var headers = []; // global store for column headers
+        var headerMap = []; // store mapping between sheet headers and tableau IDs
 
-        // Step 1: Build schema dynamically
+        // Step 1: Build schema
         myConnector.getSchema = function(schemaCallback) {
             var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&gid=0";
 
@@ -20,17 +20,21 @@
                     console.log("Parsed data for schema:", data);
 
                     if (data.length === 0) {
-                        throw new Error("No rows found in Google Sheet");
+                        throw new Error("Google Sheet has no rows");
                     }
 
-                    // Detect headers from first row
-                    headers = Object.keys(data[0]);
+                    var headers = Object.keys(data[0]);
 
-                    var cols = headers.map(h => ({
-                        id: h.replace(/\s+/g, "_"), // replace spaces with underscores
-                        alias: h,
-                        dataType: tableau.dataTypeEnum.string
-                    }));
+                    // Build column list
+                    var cols = headers.map(h => {
+                        var safeId = h.trim().replace(/\s+/g, "_"); // safe for Tableau
+                        headerMap.push({ sheet: h, tableau: safeId }); // store mapping
+                        return {
+                            id: safeId,
+                            alias: h,
+                            dataType: tableau.dataTypeEnum.string
+                        };
+                    });
 
                     var tableSchema = {
                         id: "googleSheetFeed",
@@ -41,11 +45,11 @@
                     schemaCallback([tableSchema]);
                 })
                 .catch(err => {
-                    console.error("Error building schema:", err);
+                    console.error("Error in getSchema:", err);
                 });
         };
 
-        // Step 2: Load data dynamically
+        // Step 2: Load data
         myConnector.getData = function(table, doneCallback) {
             var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&gid=0";
 
@@ -57,8 +61,8 @@
 
                     var rows = data.map(row => {
                         var obj = {};
-                        headers.forEach(h => {
-                            obj[h.replace(/\s+/g, "_")] = row[h] || "";
+                        headerMap.forEach(m => {
+                            obj[m.tableau] = row[m.sheet] || "";
                         });
                         return obj;
                     });
@@ -67,5 +71,25 @@
                     doneCallback();
                 })
                 .catch(err => {
-                    console.error("Error fetching data:", err);
+                    console.error("Error in getData:", err);
                     doneCallback();
+                });
+        };
+
+        tableau.registerConnector(myConnector);
+
+        // Step 3: Button click
+        window.onload = function() {
+            document.getElementById("submitButton").addEventListener("click", function() {
+                tableau.connectionName = "Dynamic Google Sheet Data Connector";
+                tableau.submit();
+            });
+        };
+    })();
+    </script>
+</head>
+<body>
+    <h2>Dynamic Google Sheet WDC</h2>
+    <button id="submitButton">Load Data into Tableau</button>
+</body>
+</html>
