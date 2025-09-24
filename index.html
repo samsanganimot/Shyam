@@ -2,64 +2,74 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Google Sheet WDC</title>
+    <title>Dynamic Google Sheet WDC</title>
     <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
     <script>
     (function() {
         var myConnector = tableau.makeConnector();
+        var sheetData = []; // store parsed data
 
-        // Define schema
+        // Step 1: Get schema dynamically
         myConnector.getSchema = function(schemaCallback) {
-            var cols = [
-                { id: "category", alias: "Category", dataType: tableau.dataTypeEnum.string },
-                { id: "sub_category", alias: "Sub Category", dataType: tableau.dataTypeEnum.string },
-                { id: "region", alias: "Region", dataType: tableau.dataTypeEnum.string }
-            ];
-
-            var tableSchema = {
-                id: "googleSheetFeed",
-                alias: "Google Sheet Data",
-                columns: cols
-            };
-
-            schemaCallback([tableSchema]);
-        };
-
-        // Get data
-        myConnector.getData = function(table, doneCallback) {
             var csvUrl = "https://docs.google.com/spreadsheets/d/1rBfgPGQr-oRj8biMzj1wxynRLCeHILdwFR5E9_K8gbk/export?format=csv&gid=0";
 
             fetch(csvUrl)
                 .then(response => response.text())
                 .then(csvText => {
-                    var data = tableau.helpers.parseCsv(csvText);
+                    sheetData = tableau.helpers.parseCsv(csvText);
 
-                    console.log("Parsed data:", data);
+                    // Get column names from the first row's keys
+                    var headers = Object.keys(sheetData[0]);
 
-                    // Normalize keys and map rows
-                    var rows = data.map(function(row) {
+                    // Build schema dynamically
+                    var cols = headers.map(function(h) {
                         return {
-                            category: row["category"] || row["Category"] || "",
-                            sub_category: row["sub category"] || row["Sub Category"] || "",
-                            region: row["region"] || row["Region"] || ""
+                            id: h.replace(/\s+/g, "_"), // replace spaces with underscores for Tableau
+                            alias: h,
+                            dataType: tableau.dataTypeEnum.string
                         };
                     });
 
-                    table.appendRows(rows);
-                    doneCallback();
+                    var tableSchema = {
+                        id: "googleSheetFeed",
+                        alias: "Google Sheet Data",
+                        columns: cols
+                    };
+
+                    schemaCallback([tableSchema]);
                 })
                 .catch(err => {
-                    console.error("Error fetching sheet:", err);
-                    doneCallback();
+                    console.error("Error fetching schema:", err);
                 });
+        };
+
+        // Step 2: Get data dynamically
+        myConnector.getData = function(table, doneCallback) {
+            if (sheetData.length === 0) {
+                doneCallback();
+                return;
+            }
+
+            var headers = Object.keys(sheetData[0]);
+
+            var rows = sheetData.map(function(row) {
+                var obj = {};
+                headers.forEach(function(h) {
+                    obj[h.replace(/\s+/g, "_")] = row[h] || "";
+                });
+                return obj;
+            });
+
+            table.appendRows(rows);
+            doneCallback();
         };
 
         tableau.registerConnector(myConnector);
 
-        // Button click
+        // Step 3: Button click
         window.onload = function() {
             document.getElementById("submitButton").addEventListener("click", function() {
-                tableau.connectionName = "Google Sheet Data Connector";
+                tableau.connectionName = "Dynamic Google Sheet Data Connector";
                 tableau.submit();
             });
         };
@@ -67,7 +77,7 @@
     </script>
 </head>
 <body>
-    <h2>Google Sheet WDC</h2>
+    <h2>Dynamic Google Sheet WDC</h2>
     <button id="submitButton">Load Data into Tableau</button>
 </body>
 </html>
