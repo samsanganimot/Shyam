@@ -8,21 +8,32 @@
     (function () {
       var myConnector = tableau.makeConnector();
 
-      // Define schema
+      // Define schema dynamically from headers
       myConnector.getSchema = function (schemaCallback) {
-        var cols = [
-          { id: "Channel", alias: "Channel", dataType: tableau.dataTypeEnum.string },
-          { id: "Medium", alias: "Medium", dataType: tableau.dataTypeEnum.string },
-          { id: "Value", alias: "Value", dataType: tableau.dataTypeEnum.float }
-        ];
+        var csvUrl = "https://docs.google.com/spreadsheets/d/1WnpMgmStDvq5EqTcEbD3DEkb-QljC0xuHt1LZ4Vwplo/export?format=csv&gid=0";
 
-        var tableSchema = {
-          id: "googleSheetData",
-          alias: "Google Sheet Data",
-          columns: cols
-        };
+        fetch(csvUrl)
+          .then(response => response.text())
+          .then(csvText => {
+            var rows = tableau.helpers.parseCsv(csvText);
 
-        schemaCallback([tableSchema]);
+            // Take headers from first row
+            var headers = Object.keys(rows[0]);
+            var cols = headers.map(h => ({
+              id: h.trim(),
+              alias: h.trim(),
+              dataType: tableau.dataTypeEnum.string   // default string
+            }));
+
+            var tableSchema = {
+              id: "googleSheetData",
+              alias: "Google Sheet Data",
+              columns: cols
+            };
+
+            schemaCallback([tableSchema]);
+          })
+          .catch(err => console.error("Schema fetch error:", err));
       };
 
       // Pull the data
@@ -34,13 +45,8 @@
           .then(csvText => {
             var rows = tableau.helpers.parseCsv(csvText);
 
-            var tableData = rows.map(row => ({
-              "Channel": row["Channel"],
-              "Medium": row["Medium"],
-              "Value": parseFloat(row["Value"])
-            }));
-
-            table.appendRows(tableData);
+            // Push everything as-is
+            table.appendRows(rows);
             doneCallback();
           })
           .catch(err => {
@@ -53,7 +59,7 @@
 
       window.onload = function () {
         document.getElementById("submitButton").addEventListener("click", function () {
-          tableau.connectionName = "Google Sheet Data (Channel/Medium)";
+          tableau.connectionName = "Google Sheet Data (Auto)";
           tableau.submit();
         });
       };
