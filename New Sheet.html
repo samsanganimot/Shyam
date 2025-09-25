@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Google Sheet WDC</title>
+  <script src="https://connectors.tableau.com/libs/tableauwdc-2.3.latest.js"></script>
+  <script>
+    (function () {
+      var myConnector = tableau.makeConnector();
+
+      // Define schema
+      myConnector.getSchema = function (schemaCallback) {
+        var cols = [
+          { id: "Channel", alias: "Channel", dataType: tableau.dataTypeEnum.string },
+          { id: "Medium", alias: "Medium", dataType: tableau.dataTypeEnum.string },
+          { id: "Value", alias: "Value", dataType: tableau.dataTypeEnum.float }
+        ];
+
+        var tableSchema = {
+          id: "googleSheetData",
+          alias: "Google Sheet Data",
+          columns: cols
+        };
+
+        schemaCallback([tableSchema]);
+      };
+
+      // Pull the data
+      myConnector.getData = function (table, doneCallback) {
+        var csvUrl = "https://docs.google.com/spreadsheets/d/1WnpMgmStDvq5EqTcEbD3DEkb-QljC0xuHt1LZ4Vwplo/export?format=csv&gid=0";
+
+        fetch(csvUrl)
+          .then(response => response.text())
+          .then(csvText => {
+            var rows = tableau.helpers.parseCsv(csvText);
+
+            var tableData = rows.map(row => ({
+              "Channel": row["Channel"],
+              "Medium": row["Medium"],
+              "Value": parseFloat(row["Value"])
+            }));
+
+            table.appendRows(tableData);
+            doneCallback();
+          })
+          .catch(err => {
+            console.error("Error fetching Google Sheet:", err);
+            doneCallback();
+          });
+      };
+
+      tableau.registerConnector(myConnector);
+
+      window.onload = function () {
+        document.getElementById("submitButton").addEventListener("click", function () {
+          tableau.connectionName = "Google Sheet Data (Channel/Medium)";
+          tableau.submit();
+        });
+      };
+    })();
+  </script>
+</head>
+<body>
+  <h2>Google Sheet WDC</h2>
+  <button id="submitButton">Load Data into Tableau</button>
+</body>
+</html>
