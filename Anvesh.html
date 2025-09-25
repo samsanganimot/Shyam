@@ -6,11 +6,11 @@
 </head>
 <body>
   <h2>Google Sheet WDC</h2>
-  <p>This connector fetches all rows and columns from the Google Sheet.</p>
+  <p>This connector fetches all rows and columns from the specified Google Sheet.</p>
   <button id="getDataButton">Load Data into Tableau</button>
 
   <script>
-    // Your Google Sheet as JSON URL
+    // ✅ Your actual Google Sheet JSON export URL
     const sheetURL = "https://docs.google.com/spreadsheets/d/1ulbGb-UYEIp6VXJ7GyKkzS_DY5qrO_r57OOBO2CuxyA/gviz/tq?tqx=out:json";
 
     (function () {
@@ -23,11 +23,15 @@
             const json = JSON.parse(rawText.substr(47).slice(0, -2));
             const cols = json.table.cols;
 
-            const columns = cols.map(col => ({
-              id: col.label || `col_${col.id}`,
-              alias: col.label || `col_${col.id}`,
-              dataType: tableau.dataTypeEnum.string
-            }));
+            const columns = cols.map(col => {
+              const rawLabel = col.label || `col_${col.id}`;
+              const safeId = rawLabel.replace(/[^a-zA-Z0-9_]/g, '_'); // 🔧 Sanitize ID
+              return {
+                id: safeId,
+                alias: rawLabel,
+                dataType: tableau.dataTypeEnum.string
+              };
+            });
 
             schemaCallback([{
               id: "googleSheetData",
@@ -48,8 +52,9 @@
             const data = rows.map(row => {
               const rowObj = {};
               row.c.forEach((cell, idx) => {
-                const colId = cols[idx].label || `col_${cols[idx].id}`;
-                rowObj[colId] = cell ? cell.v : null;
+                const rawLabel = cols[idx].label || `col_${cols[idx].id}`;
+                const safeId = rawLabel.replace(/[^a-zA-Z0-9_]/g, '_'); // 🔧 Sanitize ID
+                rowObj[safeId] = cell ? cell.v : null;
               });
               return rowObj;
             });
