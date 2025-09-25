@@ -49,3 +49,23 @@
               const rowObj = {};
               row.c.forEach((cell, idx) => {
                 const colId = cols[idx].label || `col_${cols[idx].id}`;
+                rowObj[colId] = cell ? cell.v : null;
+              });
+              return rowObj;
+            });
+
+            table.appendRows(data);
+            doneCallback();
+          });
+      };
+
+      tableau.registerConnector(myConnector);
+
+      document.getElementById("getDataButton").addEventListener("click", () => {
+        tableau.connectionName = "Google Sheet Data";
+        tableau.submit();
+      });
+    })();
+  </script>
+</body>
+</html>
